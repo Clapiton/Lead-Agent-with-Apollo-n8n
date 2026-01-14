@@ -1,0 +1,811 @@
+{
+    "nodes": [
+        {
+            "parameters": {
+                "values": {
+                    "string": [
+                        {
+                            "name": "zip_codes",
+                            "value": "76133,76185,76227"
+                        },
+                        {
+                            "name": "search_keyword",
+                            "value": "Pflegedienst"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "fe08a956-61ad-4bb6-af7f-4f73165f67ce",
+            "name": "Manual Input - Zip Codes",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 1,
+            "position": [
+                -256,
+                560
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.apify.com/v2/acts/compass~google-maps-scraper/run-sync-get-dataset-items",
+                "authentication": "headerAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"searchStringsArray\": [\n    \"{{ $json.search_keyword }} {{ $json.zip_codes.split(',')[0] }}\",\n    \"{{ $json.search_keyword }} {{ $json.zip_codes.split(',')[1] }}\",\n    \"{{ $json.search_keyword }} {{ $json.zip_codes.split(',')[2] }}\"\n  ],\n  \"maxCrawledPlacesPerSearch\": 50,\n  \"language\": \"de\",\n  \"scrapePhotos\": false,\n  \"scrapeReviews\": false,\n  \"exportPlaceUrls\": true,\n  \"maxImages\": 0,\n  \"maxReviews\": 0\n}",
+                "options": {
+                    "timeout": 300000,
+                    "response": {
+                        "response": {
+                            "fullResponse": false,
+                            "neverError": false
+                        }
+                    }
+                }
+            },
+            "id": "23e335fa-962b-4576-98d5-dbc19a72dab0",
+            "name": "Apify - Google Maps Scraper",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                224,
+                528
+            ],
+            "notes": "Cost-optimized: Text only, no images/reviews. Searches 3 zip codes for Pflegedienst"
+        },
+        {
+            "parameters": {
+                "options": {}
+            },
+            "id": "005fd7e1-d0b8-470f-8ccd-41ef95cec324",
+            "name": "Split Into Items",
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 1,
+            "position": [
+                432,
+                528
+            ]
+        },
+        {
+            "parameters": {
+                "values": {
+                    "string": [
+                        {
+                            "name": "company_name",
+                            "value": "={{ $json.title }}"
+                        },
+                        {
+                            "name": "full_address",
+                            "value": "={{ $json.address }}"
+                        },
+                        {
+                            "name": "street",
+                            "value": "={{ $json.street }}"
+                        },
+                        {
+                            "name": "city",
+                            "value": "={{ $json.city }}"
+                        },
+                        {
+                            "name": "zip_code",
+                            "value": "={{ $json.postalCode }}"
+                        },
+                        {
+                            "name": "phone",
+                            "value": "={{ $json.phone || 'N/A' }}"
+                        },
+                        {
+                            "name": "website",
+                            "value": "={{ $json.website || '' }}"
+                        },
+                        {
+                            "name": "google_rating",
+                            "value": "={{ $json.totalScore || 'N/A' }}"
+                        },
+                        {
+                            "name": "category",
+                            "value": "={{ $json.categoryName }}"
+                        },
+                        {
+                            "name": "sales_region",
+                            "value": "={{ $node['Map Sales Region'].json.output }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "4308ef9e-545e-4bf9-81c5-b8b398325159",
+            "name": "Normalize Lead Data",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 1,
+            "position": [
+                624,
+                528
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{ $json.website }}",
+                            "operation": "isNotEmpty"
+                        }
+                    ]
+                }
+            },
+            "id": "645202f1-e682-4cb2-95b4-4b0258f56e19",
+            "name": "Has Website?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                832,
+                528
+            ]
+        },
+        {
+            "parameters": {
+                "url": "={{ $json.website }}",
+                "options": {
+                    "timeout": 10000
+                }
+            },
+            "id": "2b71d452-e795-4f4a-a796-95cdbdecb629",
+            "name": "Scrape Homepage",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                1024,
+                416
+            ],
+            "continueOnFail": true,
+            "notes": "Extract text from main page"
+        },
+        {
+            "parameters": {
+                "url": "={{ $json.website }}/uber-uns",
+                "options": {
+                    "timeout": 10000
+                }
+            },
+            "id": "99f65bed-454b-4852-939a-2d39eb9beba4",
+            "name": "Scrape About Page",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                1024,
+                544
+            ],
+            "continueOnFail": true,
+            "notes": "Try common German 'About Us' URLs"
+        },
+        {
+            "parameters": {
+                "url": "={{ $json.website }}/unternehmen",
+                "options": {
+                    "timeout": 10000
+                }
+            },
+            "id": "92dd1002-2a68-4886-aa46-a3e6ff4e55e8",
+            "name": "Scrape Company Page",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                1024,
+                720
+            ],
+            "continueOnFail": true,
+            "notes": "Alternative company info page"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse OpenAI JSON response and merge with lead data\nconst leadData = items[0].json;\nconst aiResponse = items[0].json.message?.content || items[0].json.text || '';\n\ntry {\n  // Extract JSON from response (handle markdown code blocks)\n  let jsonStr = aiResponse;\n  if (aiResponse.includes('```json')) {\n    jsonStr = aiResponse.split('```json')[1].split('```')[0].trim();\n  } else if (aiResponse.includes('```')) {\n    jsonStr = aiResponse.split('```')[1].split('```')[0].trim();\n  }\n  \n  const aiData = JSON.parse(jsonStr);\n  \n  // Merge all data\n  return [{\n    json: {\n      ...leadData,\n      ...aiData,\n      ai_analysis_success: true,\n      processing_timestamp: new Date().toISOString()\n    }\n  }];\n  \n} catch (error) {\n  // If AI parsing fails, keep lead with error flag\n  return [{\n    json: {\n      ...leadData,\n      ai_analysis_success: false,\n      ai_error: error.message,\n      status: 'Manual Check Required',\n      processing_timestamp: new Date().toISOString()\n    }\n  }];\n}"
+            },
+            "id": "2c3b0590-631d-46ad-af4e-56169f1367b6",
+            "name": "Parse AI Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 1,
+            "position": [
+                1648,
+                528
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{ $json.company_size_indicator }}",
+                            "operation": "equals",
+                            "value2": "Small"
+                        }
+                    ]
+                }
+            },
+            "id": "a66f5c59-6802-4099-b675-392e0514e03a",
+            "name": "Route by Company Size",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                1824,
+                528
+            ],
+            "notes": "Small companies: Find Owner/CEO. Large: Find Fleet Manager"
+        },
+        {
+            "parameters": {
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "apolloApi",
+                "options": {}
+            },
+            "id": "a482de73-7a5b-46f8-8352-74cd0bc06c78",
+            "name": "Apollo - Find Owner/CEO",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                2032,
+                416
+            ],
+            "notes": "Search for: Geschäftsführer, Inhaber, Betriebsleiter"
+        },
+        {
+            "parameters": {
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "apolloApi",
+                "options": {}
+            },
+            "id": "6f8ee7d5-5646-418a-a1a1-6038e5a956e7",
+            "name": "Apollo - Find Fleet Manager",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                2032,
+                624
+            ],
+            "notes": "Search for: Fuhrparkleiter, Tech Director, Logistics Head"
+        },
+        {
+            "parameters": {
+                "url": "=https://www.northdata.de/{{ $json.company_name.replace(/ /g, '+') }}",
+                "options": {
+                    "timeout": 10000
+                }
+            },
+            "id": "5e112413-9498-4d51-9a19-5ab9d75e9323",
+            "name": "Northdata - CEO Fallback",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                2224,
+                528
+            ],
+            "continueOnFail": true,
+            "notes": "If Apollo fails, scrape CEO from Northdata"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Extract contact person from Apollo or Northdata response\nconst item = items[0].json;\n\n// Check if Apollo returned results\nif (item.people && item.people.length > 0) {\n  const contact = item.people[0];\n  return [{\n    json: {\n      ...item,\n      contact_first_name: contact.first_name,\n      contact_last_name: contact.last_name,\n      contact_email: contact.email,\n      contact_role: contact.title,\n      contact_linkedin: contact.linkedin_url || 'N/A',\n      contact_source: 'Apollo.io',\n      contact_found: true\n    }\n  }];\n}\n\n// Check if Northdata returned CEO name\nif (item.northdata_html) {\n  // Simple regex to extract CEO name from German company register\n  const ceoMatch = item.northdata_html.match(/Geschäftsführer[:\\s]+([A-ZÄÖÜ][a-zäöüß]+\\s[A-ZÄÖÜ][a-zäöüß]+)/i);\n  \n  if (ceoMatch) {\n    const fullName = ceoMatch[1];\n    const nameParts = fullName.split(' ');\n    \n    return [{\n      json: {\n        ...item,\n        contact_first_name: nameParts[0],\n        contact_last_name: nameParts.slice(1).join(' '),\n        contact_email: 'N/A - Manual lookup required',\n        contact_role: 'Geschäftsführer',\n        contact_linkedin: 'N/A',\n        contact_source: 'Northdata',\n        contact_found: true\n      }\n    }];\n  }\n}\n\n// No contact found\nreturn [{\n  json: {\n    ...item,\n    contact_first_name: 'N/A',\n    contact_last_name: 'N/A',\n    contact_email: 'N/A',\n    contact_role: 'Unknown',\n    contact_linkedin: 'N/A',\n    contact_source: 'None',\n    contact_found: false,\n    status: 'Manual Contact Lookup Required'\n  }\n}];"
+            },
+            "id": "34d2fa72-08cc-4aac-bd8a-298aafddb7c4",
+            "name": "Extract Contact Info",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 1,
+            "position": [
+                2432,
+                528
+            ]
+        },
+        {
+            "parameters": {
+                "values": {
+                    "string": [
+                        {
+                            "name": "Company Name",
+                            "value": "={{ $json.company_name }}"
+                        },
+                        {
+                            "name": "Street",
+                            "value": "={{ $json.street }}"
+                        },
+                        {
+                            "name": "City",
+                            "value": "={{ $json.city }}"
+                        },
+                        {
+                            "name": "Zip Code",
+                            "value": "={{ $json.zip_code }}"
+                        },
+                        {
+                            "name": "Sales Region",
+                            "value": "={{ $json.sales_region }}"
+                        },
+                        {
+                            "name": "Website",
+                            "value": "={{ $json.website }}"
+                        },
+                        {
+                            "name": "Phone Number",
+                            "value": "={{ $json.phone }}"
+                        },
+                        {
+                            "name": "Segment",
+                            "value": "={{ $json.segment }}"
+                        },
+                        {
+                            "name": "Segment Sub-Category",
+                            "value": "={{ $json.segment_sub }}"
+                        },
+                        {
+                            "name": "Workshop Type",
+                            "value": "={{ $json.workshop_type }}"
+                        },
+                        {
+                            "name": "Fleet Size Estimate",
+                            "value": "={{ $json.fleet_size_estimate || 'Unknown' }}"
+                        },
+                        {
+                            "name": "Vehicle Types",
+                            "value": "={{ $json.vehicle_types ? $json.vehicle_types.join(', ') : 'Unknown' }}"
+                        },
+                        {
+                            "name": "Contact Role",
+                            "value": "={{ $json.contact_role }}"
+                        },
+                        {
+                            "name": "Contact First Name",
+                            "value": "={{ $json.contact_first_name }}"
+                        },
+                        {
+                            "name": "Contact Last Name",
+                            "value": "={{ $json.contact_last_name }}"
+                        },
+                        {
+                            "name": "Contact Email",
+                            "value": "={{ $json.contact_email }}"
+                        },
+                        {
+                            "name": "Contact LinkedIn",
+                            "value": "={{ $json.contact_linkedin }}"
+                        },
+                        {
+                            "name": "Trigger Signals",
+                            "value": "={{ $json.trigger_signals ? $json.trigger_signals.join('; ') : 'None' }}"
+                        },
+                        {
+                            "name": "Status",
+                            "value": "={{ $json.status || 'Qualified Lead' }}"
+                        },
+                        {
+                            "name": "Processing Date",
+                            "value": "={{ $json.processing_timestamp }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "3d137681-8e9f-4990-a4c9-30bab56ff47a",
+            "name": "Format Final Output",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 1,
+            "position": [
+                2624,
+                528
+            ],
+            "notes": "Clean structure matching client specification"
+        },
+        {
+            "parameters": {
+                "authentication": "serviceAccount",
+                "operation": "append",
+                "documentId": {
+                    "__rl": true,
+                    "mode": "list",
+                    "value": ""
+                },
+                "sheetName": {
+                    "__rl": true,
+                    "mode": "list",
+                    "value": ""
+                }
+            },
+            "id": "533448d2-901d-4e16-b19e-bc285b405cbf",
+            "name": "Write to Google Sheets",
+            "type": "n8n-nodes-base.googleSheets",
+            "typeVersion": 3,
+            "position": [
+                2832,
+                528
+            ],
+            "notes": "Intermediate database before CRM export"
+        },
+        {
+            "parameters": {
+                "values": {
+                    "string": [
+                        {
+                            "name": "status",
+                            "value": "Manual Check Required"
+                        },
+                        {
+                            "name": "reason",
+                            "value": "No website found"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "8449b9ed-5ee5-4361-a4f3-986f7f32d5c3",
+            "name": "Flag for Manual Review",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 1,
+            "position": [
+                1648,
+                1008
+            ],
+            "notes": "Keep lead even without website - manual follow-up"
+        },
+        {
+            "parameters": {},
+            "type": "n8n-nodes-base.manualTrigger",
+            "typeVersion": 1,
+            "position": [
+                -528,
+                560
+            ],
+            "id": "2b906d4d-ae0c-4ea7-976b-c6b6ff08e193",
+            "name": "When clicking ‘Execute workflow’"
+        },
+        {
+            "parameters": {
+                "rules": {
+                    "values": [
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 3
+                                },
+                                "conditions": [
+                                    {
+                                        "leftValue": "={{ $json.zip_codes.substring(0, 2) }}",
+                                        "rightValue": "76",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals"
+                                        },
+                                        "id": "dcecb515-f697-4d9c-9964-94359f2e183d"
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "Team Karlsruhe"
+                        }
+                    ]
+                },
+                "options": {
+                    "fallbackOutput": "extra"
+                }
+            },
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 3.4,
+            "position": [
+                16,
+                528
+            ],
+            "id": "0e8a50c9-4633-4430-acdf-43987c8b28c8",
+            "name": "Map Sales Region",
+            "notes": "Routes zip codes to sales teams. POC: 76xxx = Team Karlsruhe"
+        },
+        {
+            "parameters": {
+                "mode": "combine",
+                "combineBy": "combineByPosition",
+                "numberInputs": 3,
+                "options": {}
+            },
+            "type": "n8n-nodes-base.merge",
+            "typeVersion": 3.2,
+            "position": [
+                1232,
+                512
+            ],
+            "id": "830a1dd0-a9ea-4faf-857f-f1947776b37c",
+            "name": "Merge"
+        },
+        {
+            "parameters": {
+                "modelId": {
+                    "__rl": true,
+                    "value": "chatgpt-4o-latest",
+                    "mode": "list",
+                    "cachedResultName": "CHATGPT-4O-LATEST"
+                },
+                "responses": {
+                    "values": [
+                        {}
+                    ]
+                },
+                "builtInTools": {},
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.openAi",
+            "typeVersion": 2.1,
+            "position": [
+                1376,
+                528
+            ],
+            "id": "d7b65d55-64b8-4155-8e05-10267d79aacb",
+            "name": "AI Qualification (OpenAI)",
+            "credentials": {
+                "openAiApi": {
+                    "id": "lewjGx3eNO8zqZUE",
+                    "name": "David hall OpenAi account"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Manual Input - Zip Codes": {
+            "main": [
+                [
+                    {
+                        "node": "Map Sales Region",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Apify - Google Maps Scraper": {
+            "main": [
+                [
+                    {
+                        "node": "Split Into Items",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Split Into Items": {
+            "main": [
+                [
+                    {
+                        "node": "Normalize Lead Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Normalize Lead Data": {
+            "main": [
+                [
+                    {
+                        "node": "Has Website?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Has Website?": {
+            "main": [
+                [
+                    {
+                        "node": "Scrape Homepage",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Scrape About Page",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Scrape Company Page",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Flag for Manual Review",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Scrape Homepage": {
+            "main": [
+                [
+                    {
+                        "node": "Merge",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Scrape About Page": {
+            "main": [
+                [
+                    {
+                        "node": "Merge",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "Scrape Company Page": {
+            "main": [
+                [
+                    {
+                        "node": "Merge",
+                        "type": "main",
+                        "index": 2
+                    }
+                ]
+            ]
+        },
+        "Parse AI Response": {
+            "main": [
+                [
+                    {
+                        "node": "Route by Company Size",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Route by Company Size": {
+            "main": [
+                [
+                    {
+                        "node": "Apollo - Find Owner/CEO",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Apollo - Find Fleet Manager",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Apollo - Find Owner/CEO": {
+            "main": [
+                [
+                    {
+                        "node": "Northdata - CEO Fallback",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Apollo - Find Fleet Manager": {
+            "main": [
+                [
+                    {
+                        "node": "Northdata - CEO Fallback",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Northdata - CEO Fallback": {
+            "main": [
+                [
+                    {
+                        "node": "Extract Contact Info",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract Contact Info": {
+            "main": [
+                [
+                    {
+                        "node": "Format Final Output",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Format Final Output": {
+            "main": [
+                [
+                    {
+                        "node": "Write to Google Sheets",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Flag for Manual Review": {
+            "main": [
+                [
+                    {
+                        "node": "Format Final Output",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "When clicking ‘Execute workflow’": {
+            "main": [
+                [
+                    {
+                        "node": "Manual Input - Zip Codes",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Map Sales Region": {
+            "main": [
+                [
+                    {
+                        "node": "Apify - Google Maps Scraper",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [],
+                [],
+                []
+            ]
+        },
+        "Merge": {
+            "main": [
+                [
+                    {
+                        "node": "AI Qualification (OpenAI)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Qualification (OpenAI)": {
+            "main": [
+                [
+                    {
+                        "node": "Parse AI Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {
+        "Manual Input - Zip Codes": [
+            {
+                "zip_codes": "76133,76185,76227",
+                "search_keyword": "Pflegedienst"
+            }
+        ]
+    },
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "b617fdc2f382d8a916e81e31c2a6b0d30b90a5e91edb52817c922c2f4e275a1c"
+    }
+}
