@@ -1,4 +1,4 @@
-# PH Lead Agent - Complete Workflow JSON
+# Lead Agent - Complete Workflow JSON
 
 This file contains the complete, corrected n8n workflow JSON. Import this into n8n to replace the existing workflow.
 
